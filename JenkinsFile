@@ -24,7 +24,7 @@ pipeline {
         stage('Test') {
             agent {
                 docker {
-                    image 'node:18-alpine'  
+                    image 'node:18-alpine'
                     reuseNode true
                 }
             }
@@ -32,9 +32,15 @@ pipeline {
                 echo 'Test stage...'
                 sh '''
                 test -f build/index.html && echo "File exists" || echo "File does not exist"
-                npm test   // Run the npm test command
+                npm test
                 '''
             }
+        }
+    }
+
+    post {
+        always {
+            junit 'test-results/junit.xml'
         }
     }
 }
