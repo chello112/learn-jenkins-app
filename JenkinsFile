@@ -1,53 +1,53 @@
 pipeline {
     agent any
 
-    environment {
-        // Define any environment variables here if needed
-    }
-
     stages {
-        stage('Checkout') {
-            steps {
-                // Checkout your code from source control
-                git branch: 'main', url: 'https://your-repo-url.git'
-            }
-        }
-
-        stage('Install Dependencies') {
-            steps {
-                // Install Node.js dependencies
-                sh 'npm install'
-            }
-        }
-
         stage('Build') {
-            steps {
-                // Build your project (if it's a frontend project, for example)
-                sh 'npm run build'
-            }
-        }
-
-        stage('E2E') {
             agent {
                 docker {
-                    // Use the correct Playwright Docker image version that matches your tests
-                    image 'mcr.microsoft.com/playwright:v1.39.0-noble'
+                    image 'node:18-alpine'
                     reuseNode true
                 }
             }
             steps {
-                // Serve the built application and run Playwright tests
                 sh '''
-                # Install serve (if not already installed)
+                ls -la
+                node --version
+                npm --version
+                npm ci
+                npm run build
+                ls -la
+                '''
+            }
+        }
+
+        stage('Test') {
+            agent {
+                docker {
+                    image 'node:18-alpine'
+                    reuseNode true
+                }
+            }
+            steps {
+                sh '''
+                test -f build/index.html && echo "File exists" || echo "File does not exist"
+                npm test
+                '''
+            }
+        }
+
+         stage('E2E') {
+            agent {
+                docker {
+                    image 'mcr.microsoft.com/playwright:v1.48.1-noble'
+                    reuseNode true
+                }
+            }
+            steps {
+                sh '''
                 npm install serve
-
-                # Start the server to serve the build folder
-                node_modules/.bin/serve -s build &
-
-                # Allow some time for the server to start up
+                node_modules/.bin/serve -s build & 
                 sleep 10
-
-                # Run Playwright tests
                 npx playwright test
                 '''
             }
@@ -56,20 +56,7 @@ pipeline {
 
     post {
         always {
-            // Always collect test results and artifacts
-            junit '**/test-results/*.xml'
-
-            // Optionally stop any remaining services
-            script {
-                // This ensures any background services are properly stopped
-                sh 'pkill serve || true'
-            }
-        }
-        failure {
-            // Additional actions in case of failure, like sending notifications
-            mail to: 'your-email@example.com',
-                 subject: "Pipeline Failed: ${currentBuild.fullDisplayName}",
-                 body: "Check the Jenkins pipeline for details: ${env.BUILD_URL}"
+            junit 'jest-results/junit.xml'
         }
     }
 }
