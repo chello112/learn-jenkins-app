@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     stages {
-        stage('Build') {
+        /* stage('Build') {
             agent {
                 docker {
                     image 'node:18-alpine'
@@ -19,37 +19,41 @@ pipeline {
                 ls -la
                 '''
             }
-        }
+        } */
 
-        stage('Test') {
-            agent {
-                docker {
-                    image 'node:18-alpine'
-                    reuseNode true
-                }
-            }
-            steps {
-                sh '''
+        stage('Tests') {
+            parallel {
+                stage('Unit test') {
+                    agent {
+                        docker {
+                            image 'node:18-alpine'
+                            reuseNode true
+                        }
+                    }
+                    steps {
+                        sh '''
                 test -f build/index.html && echo "File exists" || echo "File does not exist"
                 npm test
                 '''
-            }
-        }
-
-        stage('E2E') {
-            agent {
-                docker {
-                    image 'mcr.microsoft.com/playwright:v1.48.1-noble'
-                    reuseNode true
+                    }
                 }
-            }
-            steps {
-                sh '''
+
+                stage('E2E') {
+                    agent {
+                        docker {
+                            image 'mcr.microsoft.com/playwright:v1.48.1-noble'
+                            reuseNode true
+                        }
+                    }
+                    steps {
+                        sh '''
                 npm install serve
                 node_modules/.bin/serve -s build &
                 sleep 10
                 npx playwright test --reporter=line
                 '''
+                    }
+                }
             }
         }
     }
@@ -57,6 +61,7 @@ pipeline {
     post {
         always {
             junit 'jest-results/junit.xml'
+            /* groovylint-disable-next-line LineLength */
             publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: false, reportDir: 'playwright-report', reportFiles: 'index.html', reportName: 'Playwright HTML Report', reportTitles: '', useWrapperFileDirectly: true])
         }
     }
